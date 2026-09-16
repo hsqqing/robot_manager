@@ -1,13 +1,13 @@
 // 机器人驱动抽象接口；应用层只依赖此协议，不直接依赖厂商 SDK。
-#ifndef ROBOT_DRIVER_ROBOT_DRIVER_H_
-#define ROBOT_DRIVER_ROBOT_DRIVER_H_
+#ifndef ROBOT_CONTROL_ROBOT_DRIVER_H_
+#define ROBOT_CONTROL_ROBOT_DRIVER_H_
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include "robot/domain/status.h"
-#include "robot/domain/types.h"
+#include "robot/types/status.h"
+#include "robot/types/types.h"
 
 namespace robot {
 
@@ -48,4 +48,4 @@ class IRobotDriver {
 
 }  // namespace robot
 
-#endif  // ROBOT_DRIVER_ROBOT_DRIVER_H_
+#endif  // ROBOT_CONTROL_ROBOT_DRIVER_H_

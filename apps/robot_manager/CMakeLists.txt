@@ -1,3 +1,5 @@
+add_subdirectory(robotctl)
+
 if(ROBOT_ENABLE_GRPC)
   add_subdirectory(transport)
 endif()

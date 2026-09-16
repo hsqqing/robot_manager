@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "robot/domain/status.h"
+#include "robot/types/status.h"
 
 namespace robot {
 

@@ -92,7 +92,7 @@ flowchart LR
 - 类型和枚举使用 `UpperCamelCase`，函数使用 `UpperCamelCase`，变量和参数使用 `snake_case`，类数据成员使用尾下划线，例如 `state_mutex_`。
 - 常量使用 `kUpperCamelCase`，命名空间使用小写 `snake_case`，宏使用 `UPPER_SNAKE_CASE`；除头文件保护和平台适配外尽量不使用宏。
 - 自有文件采用小写下划线命名，并使用 Google 常见的 `.h`/`.cc` 后缀；测试文件以 `_test.cc` 结尾。
-- 头文件必须自包含，使用项目路径形式的 `#include` 和唯一 include guard，例如 `ROBOT_DRIVER_ROBOT_DRIVER_H_`；禁止在头文件中使用 `using namespace`。
+- 头文件必须自包含，使用项目路径形式的 `#include` 和唯一 include guard，例如 `ROBOT_CONTROL_ROBOT_DRIVER_H_`；禁止在头文件中使用 `using namespace`。
 - include 顺序为对应头文件、C 系统头、C++ 标准库、其他库、项目头文件，各组之间空一行。EFORT 等第三方头文件通过薄适配头隔离，减少其宏和全局符号扩散。
 - 使用 RAII 和明确所有权；默认使用值语义，独占所有权使用 `std::unique_ptr`，共享所有权只有在生命周期确实共享时才使用 `std::shared_ptr`。裸指针默认表示不拥有对象。
 - 对单参数构造函数使用 `explicit`，重写虚函数使用 `override`，禁止 C 风格强制转换，优先使用 `nullptr`、范围 `for`、`enum class` 和 `std::chrono` 类型。
@@ -135,8 +135,10 @@ robot_manager/
 ├── cmake/
 │   ├── CompilerWarnings.cmake
 │   ├── FindEfortSdk.cmake
-│   └── FindgRPC.cmake
+│   ├── FindgRPC.cmake
+│   └── version.h.in
 ├── api/
+│   ├── CMakeLists.txt
 │   └── proto/
 │       └── robot/
 │           └── v1/
@@ -145,38 +147,33 @@ robot_manager/
 │   └── robots/
 │       ├── er150_2700.yaml
 │       ├── er7_900.yaml
-│       └── er155_3200.yaml
+│       ├── er155_3200.yaml
 │       └── mock.yaml
 ├── docs/
 │   ├── design.md
-│   └── sdk_integration.md
+│   ├── sdk_integration.md
+│   └── application_integration_zh.md
 ├── include/
 │   └── robot/
-│       ├── version.h.in
-│       ├── domain/
+│       ├── types/
 │       │   ├── types.h
 │       │   ├── command.h
-│       │   ├── status.h
-│       │   ├── model_registry.h
-│       │   └── state_machine.h
-│       ├── service/
+│       │   └── status.h
+│       ├── control/
+│       │   ├── state_machine.h
 │       │   ├── command_executor.h
-│       │   └── control_lease.h
-│       ├── driver/
-│       │   └── robot_driver.h
-│       ├── safety/
+│       │   ├── control_lease.h
+│       │   ├── robot_service.h
+│       │   ├── robot_driver.h
 │       │   └── command_guard.h
 │       ├── config/
 │       │   └── config_loader.h
 │       └── (application transport lives under apps/robot_manager/transport)
 ├── src/
-│   ├── domain/
-│   │   ├── model_registry.cc
-│   │   └── state_machine.cc
-│   ├── service/
+│   ├── control/
+│   │   ├── state_machine.cc
 │   │   ├── command_executor.cc
-│   │   └── control_lease.cc
-│   ├── safety/
+│   │   ├── control_lease.cc
 │   │   └── command_guard.cc
 │   ├── config/
 │   │   └── config_loader.cc
@@ -196,11 +193,7 @@ robot_manager/
 ├── tests/
 │   └── unit/robot_unit_tests.cc
 ├── deploy/
-│   ├── systemd/robot-manager.service
-│   └── scripts/
-│       ├── build_linux.sh
-│       ├── validate_linux.sh
-│       └── verify_efort_sdk.sh
+│   └── systemd/robot-manager.service
 └── 3rdparty/
     └── efort_sdk/
         ├── include/
@@ -208,7 +201,7 @@ robot_manager/
         └── docs/
 ```
 
-`3rdparty/efort_sdk` 只放有合法分发授权的头文件、动态库和手册。若授权不允许提交二进制，应改为安装时注入，并由 `FindEfortSdk.cmake` 查找。动态库的 ABI、架构、glibc/libstdc++ 版本必须在构建和启动阶段校验。
+`3rdparty/` 不入仓库（`.gitignore` 排除）：`3rdparty/efort_sdk` 的头文件、动态库和手册，以及 `3rdparty/rapidyaml` 的单头文件、`3rdparty/grpc/install` 的 gRPC 工具链均由构建机本地注入，`FindEfortSdk.cmake` 按 `3rdparty/efort_sdk` 查找。动态库的 ABI、架构、glibc/libstdc++ 版本必须在构建和启动阶段校验。
 
 ### 5.1 目录树逐文件职责
 
@@ -226,44 +219,41 @@ robot_manager/                         # 项目根目录
 ├── cmake/                             # CMake 可复用模块
 │   ├── CompilerWarnings.cmake         # 为自有目标统一启用编译器告警策略
 │   ├── FindEfortSdk.cmake             # 查找 EFORT SDK 并导出 EfortSdk::EfortSdk 目标
-│   └── FindgRPC.cmake                 # 优先官方 gRPC 包，并兼容发行版头文件/库回退查找
+│   ├── FindgRPC.cmake                 # 优先官方 gRPC 包，并兼容发行版头文件/库回退查找
+│   └── version.h.in                   # CMake 模板；构建时生成版本、Git、时间和编译器信息头
 ├── api/                               # 对外接口契约
+│   ├── CMakeLists.txt                 # robot_proto 生成目标：proto 契约的编译产物
 │   └── proto/robot/v1/
 │       └── robot_control.proto        # robot.v1 gRPC 服务及请求/响应消息定义
 ├── config/robots/                     # 可复制后修改的部署配置样例
 │   ├── er150_2700.yaml        # ER150-2700 的 YAML 样例和安全默认值
 │   ├── er7_900.yaml           # ER7-900 的 YAML 样例和安全默认值
-│   └── er155_3200.yaml        # ER155-3200 的 YAML 样例和安全默认值
+│   ├── er155_3200.yaml        # ER155-3200 的 YAML 样例和安全默认值
 │   └── mock.yaml               # 不连接真实控制器的本地 Mock 验证配置
 ├── docs/
 │   ├── design.md                      # 总体架构、领域模型、状态机、API、安全和实施方案
-│   └── sdk_integration.md             # EFORT SDK 版本、ABI、架构和 HIL 核对结果
+│   ├── sdk_integration.md             # EFORT SDK 版本、ABI、架构和 HIL 核对结果
+│   └── application_integration_zh.md  # 上层应用集成指南（中文）
 ├── include/robot/                     # 可复用的领域、应用和驱动接口头文件
-│   ├── domain/                        # 不依赖具体厂商和传输协议的核心模型
+│   ├── types/                         # 不依赖具体厂商和传输协议的核心模型
 │   │   ├── types.h                    # 单位明确的位姿、关节、快照、告警和驱动参数类型
 │   │   ├── command.h                  # 命令种类、载荷、状态、记录和幂等数据结构
-│   │   ├── status.h                   # C++17 的统一 Status/StatusOr 错误结果类型
-│   │   ├── model_registry.h            # 型号枚举、资料、名称解析和控制器匹配接口
-│   │   └── state_machine.h             # 推导 DISCONNECTED/READY/FAULT 等生命周期状态
-│   ├── version.h.in                    # CMake 模板；构建时生成版本、Git、时间和编译器信息头
-│   ├── service/                       # 面向用例的编排接口
+│   │   └── status.h                   # C++17 的统一 Status/StatusOr 错误结果类型
+│   ├── control/                       # 控制编排：状态推导、执行、租约、驱动与安全检查
+│   │   ├── state_machine.h             # 推导 DISCONNECTED/READY/FAULT 等生命周期状态
 │   │   ├── command_executor.h          # 有界队列、优先级、幂等和命令生命周期接口
-│   │   └── control_lease.h             # 控制租约获取、续租、释放和过期校验接口
-│   ├── driver/                        # 厂商无关的驱动抽象
-│   │   └── robot_driver.h              # 连接、运动、程序、I/O、状态和告警统一接口
-│   ├── safety/
+│   │   ├── control_lease.h             # 控制租约获取、续租、释放和过期校验接口
+│   │   ├── robot_service.h             # transport 调用的应用门面接口
+│   │   ├── robot_driver.h              # 连接、运动、程序、I/O、状态和告警统一接口
 │   │   └── command_guard.h             # 租约、状态、参数、限位和工作区检查接口
 │   ├── config/
 │   │   └── config_loader.h             # 版本化 YAML 配置模型和严格加载/校验接口
 │   └── (应用传输层位于 apps/robot_manager/transport)
 ├── src/                               # 自有实现，不放生成的 Protobuf 源码
-│   ├── domain/
-│   │   ├── model_registry.cc           # 实现型号规范化、解析、资料查询和匹配
-│   │   └── state_machine.cc             # 实现快照到生命周期状态的确定性推导
-│   ├── application/
+│   ├── control/                       # 控制层实现
+│   │   ├── state_machine.cc             # 实现快照到生命周期状态的确定性推导
 │   │   ├── command_executor.cc          # 串行调度驱动调用，维护命令状态、超时和幂等记录
-│   │   └── control_lease.cc             # 实现线程安全的租约生成、续期、释放和过期判断
-│   ├── safety/
+│   │   ├── control_lease.cc             # 实现线程安全的租约生成、续期、释放和过期判断
 │   │   └── command_guard.cc             # 实现运动、点动、程序、速度和 I/O 安全校验
 │   ├── config/
 │   │   └── config_loader.cc             # 解析受支持 YAML 子集，并把配置转换为领域/服务选项
@@ -283,12 +273,8 @@ robot_manager/                         # 项目根目录
 ├── tests/
 │   └── unit/robot_unit_tests.cc           # CTest 单元/集成测试，覆盖核心链路和 Mock 驱动
 ├── deploy/
-│   ├── systemd/robot-manager.service     # systemd 单元、非 root 运行和进程隔离策略
-│   └── scripts/
-│       ├── build_linux.sh                # 校验 SDK、构建 Release 并运行 CTest
-│       ├── validate_linux.sh             # 验证 Mock Debug 和 EFORT Release 两套构建
-│       └── verify_efort_sdk.sh           # 校验 SDK 文件、ELF 架构、依赖库和版本标识
-└── 3rdparty/efort_sdk/                  # 经授权分发或部署注入的 EFORT 原始 SDK
+│   └── systemd/robot-manager.service     # systemd 单元、非 root 运行和进程隔离策略
+└── 3rdparty/efort_sdk/                  # 本地注入（不入仓库）的 EFORT 原始 SDK
     ├── include/
     │   ├── EfortSdk.h                   # EFORT SDK 主 API 声明
     │   ├── SdkConstDef.h                # SDK 常量、版本标识和枚举定义
@@ -309,8 +295,8 @@ robot_manager/                         # 项目根目录
         └── C++SDK使用手册_V2.8.pdf     # 厂商 API、返回码和运行约束参考手册
 ```
 
-依赖方向为：`api` 只描述外部契约；`include/robot/domain` 不依赖 EFORT、gRPC
-或 CLI；`application` 编排领域用例；`safety` 在命令进入驱动前做统一防护；
+依赖方向为：`api` 只描述外部契约；`include/robot/types` 与 `include/robot/control`
+不依赖 EFORT、gRPC 或 CLI；`src/control` 编排领域用例并在命令进入驱动前做统一防护；
 `src/adapters` 承担传输层和厂商 SDK 的边界转换；`apps` 负责组装和进程生命周期。
 因此上层业务不会直接依赖 `EfortSdk.h`，Mock 驱动也可以替换真实驱动完成大部分测试。
 
@@ -418,7 +404,7 @@ class IRobotDriver {
 };
 ```
 
-这里的 `Status` 和 `StatusOr<T>` 是 `domain/status.h` 中项目自有的 C++17
+这里的 `Status` 和 `StatusOr<T>` 是 `types/status.h` 中项目自有的 C++17
 错误类型，不是 C++23 的 `std::expected`。接口方法采用 UpperCamelCase，类名
 不使用 `I` 前缀，符合本项目采用的 Google 风格基线。
 
@@ -820,63 +806,71 @@ Quick Stop 接口，因此服务明确拒绝 `QUICK_STOP`，不把 `MOVEHOLD` �
 完整核对结果和 HIL 待办见
 `docs/sdk_integration.md`。
 
+当前目录结构如下（标注 `[新增]`/`[建议]` 的条目为后续规划，尚未实现）：
+
 ```
 robot_manager/
-├── 3rdparty/
+├── 3rdparty/                 # 不入仓库，构建机本地注入
 │   ├── efort_sdk/
 │   │   ├── include/          # 厂商 SDK 头文件
 │   │   └── lib/              # 厂商 SDK 动态库
-│   └── rapidyaml/include/
+│   ├── rapidyaml/include/    # ryml_all.hpp 单头文件，robot_config 解析 YAML 依赖
+│   └── grpc/install/         # 生产 gRPC 工具链安装位置
+├── api/
+│   ├── CMakeLists.txt              # robot_proto 生成目标
+│   └── proto/robot/v1/
+│       ├── robot_control.proto
+│       └── robot_status.proto      # [建议] 独立的状态上报协议
 ├── apps/
 │   ├── robotctl/
 │   │   ├── main.cc           # 轻量级 CLI 工具
 │   │   └── CMakeLists.txt
 │   └── robot_manager/
-│       ├── api/v1/
-│       │   ├──robot_control.proto
-│       │   └──robot_status.proto  # [建议] 独立的状态上报协议
 │       ├── transport/
 │       │   ├── grpc_options.h
 │       │   ├── grpc_server.h
-│       │   └── grpc_server.cc
+│       │   ├── grpc_server.cc
+│       │   └── CMakeLists.txt      # robot_grpc 目标
 │       ├── main.cc           # 核心服务入口
 │       └── CMakeLists.txt
 ├── cmake/
+│   ├── CompilerWarnings.cmake
 │   ├── FindEfortSdk.cmake
 │   ├── FindgRPC.cmake
-│   └── CompilerWarnings.cmake
-├── config/
-│   └── robots/
-│       ├── er150_2700.yaml
-│       └── mock.yaml
-├── deploy/
-│   └── systemd/
-│       └── robot-manager.service
-├── docs/
+│   └── version.h.in
+├── config/robots/            # 每台机器人一份部署配置样例
+│   ├── er150_2700.yaml
+│   ├── er7_900.yaml
+│   ├── er155_3200.yaml
+│   └── mock.yaml
+├── deploy/systemd/
+│   └── robot-manager.service
+├── docs/                     # design.md、sdk_integration.md、application_integration_zh.md
 ├── examples/                 # [保留] 最小调用示例，极具价值
 │   ├── basic_move.cc
 │   └── CMakeLists.txt
 ├── include/robot/            # ===== 仅公共 API (Public Headers) =====
-│   ├── driver/
-│   │   └── robot_driver.h    # 纯虚接口 IRobotDriver
-│   ├── domain/
+│   ├── types/
 │   │   ├── types.h
 │   │   ├── status.h
 │   │   └── command.h
-│   ├── service/
-│   │   └── robot_service.h
+│   ├── control/
+│   │   ├── robot_driver.h    # 纯虚接口 IRobotDriver
+│   │   ├── robot_service.h
 │   │   ├── command_executor.h
-│   │   └── control_lease.h
-│   ├── config/
-│   │   └── config_loader.cc      # 支持 YAML + Env Var
-│   └── safety/
-│       ├── command_guard.h      # 事前校验
-│       └── realtime_monitor.h
+│   │   ├── control_lease.h
+│   │   ├── state_machine.h
+│   │   ├── command_guard.h   # 事前校验
+│   │   └── realtime_monitor.h  # [新增] 事中监控
+│   └── config/
+│       └── config_loader.h   # 版本化 YAML 配置模型
 ├── src/                      # ===== 内部实现 (Private Headers + Sources) =====
 │   ├── adapters/
 │   │   ├── efort/
 │   │   │   ├── efort_driver.h      # 实现 IRobotDriver
 │   │   │   ├── efort_driver.cc
+│   │   │   ├── efort_error_mapper.h
+│   │   │   ├── efort_error_mapper.cc
 │   │   │   ├── sdk_bridge.h        # [新增] 隔离 EfortSdk.h
 │   │   │   ├── sdk_bridge.cc
 │   │   │   └── CMakeLists.txt
@@ -884,25 +878,24 @@ robot_manager/
 │   │       ├── mock_driver.h
 │   │       ├── mock_driver.cc
 │   │       └── CMakeLists.txt
-│   ├── service/
-│   │   └── robot_service.cc
-│   ├── config/
-│   │   └── config_loader.cc      # 支持 YAML + Env Var
-│   ├── domain/
+│   ├── control/
+│   │   ├── command_executor.cc
+│   │   ├── control_lease.cc
 │   │   ├── state_machine.cc
-│   │   └── model_registry.cc
-│   └── safety/
-│       ├── command_guard.cc      # 事前校验
-│       └── realtime_monitor.cc   # [新增] 事中监控
+│   │   ├── command_guard.cc  # 事前校验
+│   │   └── realtime_monitor.cc   # [新增] 事中监控
+│   └── config/
+│       └── config_loader.cc  # 解析受支持 YAML 子集
 ├── tests/
 │   ├── unit/
-│   │   ├── domain/
-│   │   ├── safety/
-│   │   └── adapters/mock/
+│   │   └── robot_unit_tests.cc
 │   └── CMakeLists.txt
 ├── .clang-format
 ├── .clang-tidy
+├── .editorconfig
+├── .gitignore
 ├── CMakeLists.txt
 ├── CMakePresets.json
+├── tool_install.sh
 └── README.md
 ```

@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "robot/service/command_executor.h"
-#include "robot/domain/status.h"
-#include "robot/domain/types.h"
+#include "robot/control/command_executor.h"
+#include "robot/types/status.h"
+#include "robot/types/types.h"
 namespace robot {
 
 // Transport-neutral settings consumed by the executable's selected transport.

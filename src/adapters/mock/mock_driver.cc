@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include "robot/domain/state_machine.h"
+#include "robot/control/state_machine.h"
 
 namespace robot {
 

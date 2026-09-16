@@ -5,8 +5,8 @@
 #include <csignal>
 #include <string>
 
-#include "robot/service/robot_service.h"
-#include "robot/domain/status.h"
+#include "robot/control/robot_service.h"
+#include "robot/types/status.h"
 #include "robot_manager/transport/grpc_options.h"
 
 namespace robot {

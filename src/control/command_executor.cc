@@ -1,5 +1,5 @@
 // 命令执行器实现：后台线程负责轮询状态和按序执行写操作。
-#include "robot/service/command_executor.h"
+#include "robot/control/command_executor.h"
 
 #include <algorithm>
 #include <chrono>
@@ -17,8 +17,8 @@
 #include <utility>
 #include <vector>
 
-#include "robot/domain/state_machine.h"
-#include "robot/safety/command_guard.h"
+#include "robot/control/state_machine.h"
+#include "robot/control/command_guard.h"
 
 namespace robot {
 namespace {

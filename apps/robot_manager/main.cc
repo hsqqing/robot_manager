@@ -5,9 +5,9 @@
 #include <string>
 #include <thread>
 
-#include "robot/service/command_executor.h"
+#include "robot/control/command_executor.h"
 #include "robot/config/config_loader.h"
-#include "robot/domain/state_machine.h"
+#include "robot/control/state_machine.h"
 #ifdef ROBOT_HAS_MOCK
 #include "mock_driver.h"
 #endif

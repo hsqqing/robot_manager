@@ -1,10 +1,10 @@
 // 在命令进入驱动前执行租约、状态、速度和工作空间等安全检查。
-#ifndef ROBOT_SAFETY_COMMAND_GUARD_H_
-#define ROBOT_SAFETY_COMMAND_GUARD_H_
+#ifndef ROBOT_CONTROL_COMMAND_GUARD_H_
+#define ROBOT_CONTROL_COMMAND_GUARD_H_
 
-#include "robot/domain/command.h"
-#include "robot/domain/status.h"
-#include "robot/domain/types.h"
+#include "robot/types/command.h"
+#include "robot/types/status.h"
+#include "robot/types/types.h"
 
 namespace robot {
 
@@ -27,4 +27,4 @@ class CommandGuard {
 
 }  // namespace robot
 
-#endif  // ROBOT_SAFETY_COMMAND_GUARD_H_
+#endif  // ROBOT_CONTROL_COMMAND_GUARD_H_

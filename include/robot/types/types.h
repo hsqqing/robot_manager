@@ -1,6 +1,6 @@
 // 机器人连接、运动、状态和安全策略等领域基础数据类型。
-#ifndef ROBOT_DOMAIN_TYPES_H_
-#define ROBOT_DOMAIN_TYPES_H_
+#ifndef ROBOT_TYPES_TYPES_H_
+#define ROBOT_TYPES_TYPES_H_
 
 #include <array>
 #include <chrono>
@@ -175,4 +175,4 @@ struct SafetyPolicy {
 
 }  // namespace robot
 
-#endif  // ROBOT_DOMAIN_TYPES_H_
+#endif  // ROBOT_TYPES_TYPES_H_

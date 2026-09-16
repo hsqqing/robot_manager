@@ -16,7 +16,7 @@
 
 #include "EfortSdk.h"
 #include "efort_error_mapper.h"
-#include "robot/domain/state_machine.h"
+#include "robot/control/state_machine.h"
 
 namespace robot {
 namespace {

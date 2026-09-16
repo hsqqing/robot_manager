@@ -1,5 +1,5 @@
 // 控制租约的分配、续期、释放和过期回收实现。
-#include "robot/service/control_lease.h"
+#include "robot/control/control_lease.h"
 
 #include <chrono>
 #include <string>

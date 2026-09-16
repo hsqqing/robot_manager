@@ -1,5 +1,5 @@
 // 集中执行命令安全策略，拒绝不满足前置条件的危险操作。
-#include "robot/safety/command_guard.h"
+#include "robot/control/command_guard.h"
 
 #include <algorithm>
 #include <cmath>

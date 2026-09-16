@@ -28,8 +28,9 @@ The primary runtime files have been inspected as ELF binaries:
 | `liblog4cpp.so.2.9*` | AArch64 | no |
 
 `libEftSdk.so` directly requests the unversioned `liblog4cpp.so`, so the
-production installer deliberately excludes the AArch64 versioned files. Run
-`deploy/scripts/verify_efort_sdk.sh` on every SDK update.
+production installer deliberately excludes the AArch64 versioned files.
+After every SDK update, re-check the ELF architecture of each runtime file
+and the dependency set of `libEftSdk.so` before shipping.
 
 The four selected libraries are installed together under
 `/usr/local/lib/robot-manager` by the default deployment. The executable has a

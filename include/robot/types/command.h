@@ -1,14 +1,14 @@
 // 领域命令、载荷和命令执行记录；不依赖具体机器人厂商 SDK。
-#ifndef ROBOT_DOMAIN_COMMAND_H_
-#define ROBOT_DOMAIN_COMMAND_H_
+#ifndef ROBOT_TYPES_COMMAND_H_
+#define ROBOT_TYPES_COMMAND_H_
 
 #include <chrono>
 #include <cstdint>
 #include <string>
 #include <variant>
 
-#include "robot/domain/status.h"
-#include "robot/domain/types.h"
+#include "robot/types/status.h"
+#include "robot/types/types.h"
 
 namespace robot {
 
@@ -101,4 +101,4 @@ struct CommandRecord {
 
 }  // namespace robot
 
-#endif  // ROBOT_DOMAIN_COMMAND_H_
+#endif  // ROBOT_TYPES_COMMAND_H_

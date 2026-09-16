@@ -1,6 +1,8 @@
 # Each executable owns its composition and optional transport dependencies.
+# robot_manager owns its gRPC transport and the robotctl companion client;
+# robotsh uses the framework directly and shares nothing with the daemon.
 add_subdirectory(robot_manager)
-add_subdirectory(robotctl)
+add_subdirectory(robotsh)
 
 install(FILES "${ROBOT_GENERATED_INCLUDE_DIR}/robot/version.h"
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/robot)

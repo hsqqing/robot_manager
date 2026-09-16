@@ -7,12 +7,12 @@
 #include <string>
 #include <thread>
 
-#include "robot/service/command_executor.h"
-#include "robot/service/control_lease.h"
+#include "robot/control/command_executor.h"
+#include "robot/control/control_lease.h"
 #include "robot/config/config_loader.h"
-#include "robot/domain/state_machine.h"
+#include "robot/control/state_machine.h"
 #include "mock_driver.h"
-#include "robot/safety/command_guard.h"
+#include "robot/control/command_guard.h"
 
 namespace {
 

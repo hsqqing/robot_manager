@@ -1,8 +1,8 @@
 // 根据控制器快照推导对外暴露的生命周期状态。
-#ifndef ROBOT_DOMAIN_STATE_MACHINE_H_
-#define ROBOT_DOMAIN_STATE_MACHINE_H_
+#ifndef ROBOT_CONTROL_STATE_MACHINE_H_
+#define ROBOT_CONTROL_STATE_MACHINE_H_
 
-#include "robot/domain/types.h"
+#include "robot/types/types.h"
 
 namespace robot {
 
@@ -11,4 +11,4 @@ const char* LifecycleStateName(RobotLifecycleState state);
 
 }  // namespace robot
 
-#endif  // ROBOT_DOMAIN_STATE_MACHINE_H_
+#endif  // ROBOT_CONTROL_STATE_MACHINE_H_

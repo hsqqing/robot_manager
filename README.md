@@ -15,17 +15,25 @@ Drivers implement `IRobotDriver`; transports call `RobotService`.
 | `robot_core` | Reusable control framework | Always built |
 | `robot_mock` | In-memory driver | `ROBOT_ENABLE_MOCK` (default ON) |
 | `robot_efort` | EFORT SDK driver | `ROBOT_ENABLE_EFORT` (default OFF) |
-| `robot_grpc` | gRPC transport and protocol mapping | `ROBOT_ENABLE_GRPC` (default OFF) |
+| `robot_grpc` | gRPC transport and protocol mapping (`apps/robot_manager/transport/`) | `ROBOT_ENABLE_GRPC` (default OFF) |
 | `robot_config` | YAML deployment configuration | Built with apps or tests |
 
-Each adapter owns its CMake target under `src/adapters/<name>/`. Applications
-select and compose extensions; the framework never creates concrete drivers.
-Add a driver by implementing `IRobotDriver` in a separate library linked to
-`robot_core`, then inject it into `CommandExecutor`. A new transport takes a
-`RobotService` and does not need to know the driver or executor implementation.
-Extensions are linked at build time; dynamic plugin loading is not required.
+Each adapter owns its CMake target under `src/adapters/<name>/`; the framework
+never creates concrete drivers. Drivers are the only framework extensions:
+transports are application-level composition, so `robot_grpc` lives under
+`apps/robot_manager/transport/`; the generated `robot_proto` library is defined
+next to the contract it compiles, in `api/`, and is linked by both the
+`robot-manager` daemon and its companion client `robotctl`
+(`apps/robot_manager/robotctl/`). `robotsh` (`apps/robotsh/`) is a standalone
+CLI that composes the framework directly (driver + `CommandExecutor`) and is
+independent of the daemon and gRPC. Add a driver by implementing `IRobotDriver`
+in a separate library
+linked to `robot_core`, then inject it into `CommandExecutor`. A new transport
+takes a `RobotService` and does not need to know the driver or executor
+implementation. Extensions are linked at build time; dynamic plugin loading is
+not required.
 
-The shared `include/robot/driver/` directory contains only `robot_driver.h`,
+The shared `include/robot/control/` directory contains only `robot_driver.h`,
 whose interface type is `IRobotDriver`. Concrete driver headers are private to
 their adapter modules under `src/adapters/<name>/`; only the application that
 composes an adapter adds that module's private include directory. Linking only
@@ -54,7 +62,7 @@ verified joint limits are configured.
 
 ## Linux build
 
-The bundled `libEftSdk.so` is an x86-64 Linux ELF library built with GCC 5.4.
+The supplied `libEftSdk.so` is an x86-64 Linux ELF library built with GCC 5.4.
 Build this C++17 service on x86-64 Linux with GCC 9+ or Clang 10+ and the GCC
 5+ `std::__cxx11` ABI; GCC 5.4 itself does not provide the required C++17
 standard-library facilities.
@@ -74,9 +82,12 @@ sudo apt-get install build-essential cmake ninja-build protobuf-compiler \
   libprotobuf-dev libgrpc++-dev protobuf-compiler-grpc
 ```
 
-```sh
-./deploy/scripts/validate_linux.sh
-```
+Third-party prerequisites are not stored in the repository (`.gitignore`
+excludes `3rdparty/`). Every configuration that builds `robot_config` — that
+is, any build with `ROBOT_BUILD_APPS` or `ROBOT_BUILD_TESTS` — requires the
+amalgamated rapidyaml single header at `3rdparty/rapidyaml/include/ryml_all.hpp`.
+The `linux-efort-release` preset additionally requires the EFORT SDK under
+`3rdparty/efort_sdk` and the gRPC toolchain under `3rdparty/grpc/install`.
 
 To build and test without the physical SDK:
 
@@ -86,21 +97,14 @@ cmake --build --preset linux-mock-debug
 ctest --preset linux-mock-debug
 ```
 
-## Vendored gRPC build
+## gRPC toolchain
 
-The production preset uses the gRPC v1.78.1 toolchain installed under
-`3rdparty/grpc/install`. Clone the pinned source and its shallow submodules:
-
-```sh
-git clone --recurse-submodules -b v1.78.1 --depth 1 --shallow-submodules \
-  https://github.com/grpc/grpc 3rdparty/grpc
-./deploy/scripts/build_grpc.sh
-```
-
-`build_grpc.sh` stores intermediate files in `3rdparty/grpc/build` and installs
-headers, libraries, CMake package files, `protoc`, and `grpc_cpp_plugin` in
-`3rdparty/grpc/install`. `build_linux.sh` invokes this step automatically for
-the EFORT release build.
+The production preset (`linux-efort-release`) sets `CMAKE_PREFIX_PATH` to
+`3rdparty/grpc/install` and expects gRPC v1.78.1 built and installed there
+from source following the gRPC upstream build instructions. Development
+builds may instead use distribution packages: `cmake/FindgRPC.cmake` prefers
+the official gRPC CMake package and falls back to distribution-provided
+headers, `libgrpc++`, and `grpc_cpp_plugin` (including Ubuntu 20.04).
 
 查看构建版本、Git 元数据和编译器信息：
 
@@ -125,6 +129,15 @@ For a local process-only check, use the Mock configuration:
 ```sh
 ./build/linux-mock-debug/robot-manager \
   --config config/robots/mock.yaml
+```
+
+`robotsh` drives the framework directly (no daemon, no gRPC); with a mock
+configuration it is safe to run locally:
+
+```sh
+./build/linux-mock-debug/robotsh state config/robots/mock.yaml
+./build/linux-mock-debug/robotsh movej config/robots/mock.yaml \
+  0 -10 20 0 30 0 10
 ```
 
 ## Configuration
@@ -170,7 +183,8 @@ successfully loaded by the current service process can start.
 
 ## SDK packaging note
 
-The supplied directory contains an x86-64 `libEftSdk.so`, but the versioned
+The locally supplied SDK directory (kept out of the repository, see
+`.gitignore`) contains an x86-64 `libEftSdk.so`, but the versioned
 `liblog4cpp.so.2.9*` files are AArch64. The x86-64 SDK depends on the unversioned
 `liblog4cpp.so`, so the CMake install and verification script intentionally
 package only architecture-matched files. Do not copy the whole SDK `lib`

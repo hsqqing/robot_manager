@@ -35,7 +35,7 @@ set(ROBOT_COMPILER_INFO
 set(ROBOT_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${ROBOT_GENERATED_INCLUDE_DIR}/robot")
 configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/robot/version.h.in"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.h.in"
   "${ROBOT_GENERATED_INCLUDE_DIR}/robot/version.h"
   @ONLY)
 
@@ -62,10 +62,10 @@ find_package(Threads REQUIRED)
 
 add_library(
   robot_core
-  src/domain/state_machine.cc
-  src/service/control_lease.cc
-  src/service/command_executor.cc
-  src/safety/command_guard.cc)
+  src/control/state_machine.cc
+  src/control/control_lease.cc
+  src/control/command_executor.cc
+  src/control/command_guard.cc)
 
 target_include_directories(
   robot_core
@@ -91,6 +91,12 @@ if(ROBOT_ENABLE_MOCK)
 endif()
 if(ROBOT_ENABLE_EFORT)
   add_subdirectory(src/adapters/efort)
+endif()
+# The generated protobuf/gRPC library is the compiled form of the api/proto
+# contract, so it is defined in api/ where every app links it, instead of
+# inside a single app's transport directory.
+if(ROBOT_ENABLE_GRPC)
+  add_subdirectory(api)
 endif()
 if(ROBOT_BUILD_APPS)
   add_subdirectory(apps)

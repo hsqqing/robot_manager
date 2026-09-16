@@ -1,6 +1,6 @@
 // 应用层执行门面：串行化机器人命令并维护状态、租约与生命周期。
-#ifndef ROBOT_SERVICE_COMMAND_EXECUTOR_H_
-#define ROBOT_SERVICE_COMMAND_EXECUTOR_H_
+#ifndef ROBOT_CONTROL_COMMAND_EXECUTOR_H_
+#define ROBOT_CONTROL_COMMAND_EXECUTOR_H_
 
 #include <chrono>
 #include <cstddef>
@@ -9,12 +9,12 @@
 #include <string>
 #include <vector>
 
-#include "robot/service/control_lease.h"
-#include "robot/service/robot_service.h"
-#include "robot/domain/command.h"
-#include "robot/domain/status.h"
-#include "robot/domain/types.h"
-#include "robot/driver/robot_driver.h"
+#include "robot/control/control_lease.h"
+#include "robot/control/robot_driver.h"
+#include "robot/control/robot_service.h"
+#include "robot/types/command.h"
+#include "robot/types/status.h"
+#include "robot/types/types.h"
 
 namespace robot {
 
@@ -42,9 +42,10 @@ class CommandExecutor : public RobotService {
   Status Start(const ConnectionOptions& connection);
   void Shutdown();
 
-  StatusOr<ControlLease> AcquireControlLease(const std::string& client_id) override;
-  StatusOr<ControlLease> RenewControlLease(const std::string& lease_id,
-                                           const std::string& client_id) override;
+  StatusOr<ControlLease> AcquireControlLease(
+      const std::string& client_id) override;
+  StatusOr<ControlLease> RenewControlLease(
+      const std::string& lease_id, const std::string& client_id) override;
   Status ReleaseControlLease(const std::string& lease_id,
                              const std::string& client_id) override;
 
@@ -62,4 +63,4 @@ class CommandExecutor : public RobotService {
 
 }  // namespace robot
 
-#endif  // ROBOT_SERVICE_COMMAND_EXECUTOR_H_
+#endif  // ROBOT_CONTROL_COMMAND_EXECUTOR_H_

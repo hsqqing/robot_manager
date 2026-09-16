@@ -4,8 +4,8 @@
 #include <thread>
 
 #include "mock_driver.h"
-#include "robot/domain/command.h"
-#include "robot/service/command_executor.h"
+#include "robot/types/command.h"
+#include "robot/control/command_executor.h"
 
 namespace {
 

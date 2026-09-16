@@ -1,13 +1,13 @@
 // 控制租约模型及其并发安全的管理器接口。
-#ifndef ROBOT_SERVICE_CONTROL_LEASE_H_
-#define ROBOT_SERVICE_CONTROL_LEASE_H_
+#ifndef ROBOT_CONTROL_CONTROL_LEASE_H_
+#define ROBOT_CONTROL_CONTROL_LEASE_H_
 
 #include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <string>
 
-#include "robot/domain/status.h"
+#include "robot/types/status.h"
 
 namespace robot {
 
@@ -39,4 +39,4 @@ class ControlLeaseManager {
 
 }  // namespace robot
 
-#endif  // ROBOT_SERVICE_CONTROL_LEASE_H_
+#endif  // ROBOT_CONTROL_CONTROL_LEASE_H_

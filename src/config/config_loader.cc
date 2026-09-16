@@ -20,7 +20,6 @@
 #define RYML_SINGLE_HDR_DEFINE_NOW
 #include <ryml_all.hpp>
 
-
 namespace robot {
 namespace {
 
@@ -46,9 +45,10 @@ Status ReadMapping(ryml::ConstNodeRef node, const std::string& prefix,
   for (const auto child : node.children()) {
     const std::string key = YamlString(child.key());
     if (key.empty() || key.find('.') != std::string::npos ||
-        child.has_anchor() || child.is_ref() ||
-        child.has_key_tag() || child.has_val_tag()) {
-      return ConfigError("unsupported key or YAML reference at '" + prefix + "'");
+        child.has_anchor() || child.is_ref() || child.has_key_tag() ||
+        child.has_val_tag()) {
+      return ConfigError("unsupported key or YAML reference at '" + prefix +
+                         "'");
     }
     const std::string path = prefix.empty() ? key : prefix + "." + key;
     if (document.scalars.count(path) || document.lists.count(path) ||
@@ -89,18 +89,22 @@ StatusOr<YamlDocument> ParseYaml(const std::string& path) {
 
   // 使用局部回调，让语法错误返回 Status，避免默认错误处理终止进程。
   ryml::Callbacks callbacks;
-  callbacks.m_error_basic = [](ryml::csubstr msg, const ryml::ErrorDataBasic&, void*) {
+  callbacks.m_error_basic = [](ryml::csubstr msg, const ryml::ErrorDataBasic&,
+                               void*) {
     throw std::runtime_error(YamlString(msg));
   };
-  callbacks.m_error_parse = [](ryml::csubstr msg, const ryml::ErrorDataParse&, void*) {
+  callbacks.m_error_parse = [](ryml::csubstr msg, const ryml::ErrorDataParse&,
+                               void*) {
     throw std::runtime_error(YamlString(msg));
   };
-  callbacks.m_error_visit = [](ryml::csubstr msg, const ryml::ErrorDataVisit&, void*) {
+  callbacks.m_error_visit = [](ryml::csubstr msg, const ryml::ErrorDataVisit&,
+                               void*) {
     throw std::runtime_error(YamlString(msg));
   };
   try {
     ryml::Tree tree(callbacks);
-    ryml::parse_in_arena(ryml::to_csubstr(path), ryml::to_csubstr(source), &tree);
+    ryml::parse_in_arena(ryml::to_csubstr(path), ryml::to_csubstr(source),
+                         &tree);
     YamlDocument document;
     const Status status = ReadMapping(tree.crootref(), "", document);
     if (!status.ok()) return status;
@@ -112,18 +116,30 @@ StatusOr<YamlDocument> ParseYaml(const std::string& path) {
 
 Status CheckKnownKeys(const YamlDocument& document) {
   const std::set<std::string> known_scalars = {
-      "schema_version", "service.instance_id", "service.grpc_listen",
-      "service.state_poll_ms", "service.state_stale_after_ms",
-      "service.command_queue_capacity", "service.command_history_capacity",
-      "robot.id", "robot.driver", "robot.address", "robot.model",
+      "schema_version",
+      "service.instance_id",
+      "service.grpc_listen",
+      "service.state_poll_ms",
+      "service.state_stale_after_ms",
+      "service.command_queue_capacity",
+      "service.command_history_capacity",
+      "robot.id",
+      "robot.driver",
+      "robot.address",
+      "robot.model",
       "robot.axis_count",
-      "robot.verify_sdk_version", "robot.sdk_debug_logging",
-      "control_lease.ttl_ms", "control_lease.jog_heartbeat_timeout_ms",
-      "limits.motion_enabled", "limits.program_execution_enabled",
+      "robot.verify_sdk_version",
+      "robot.sdk_debug_logging",
+      "control_lease.ttl_ms",
+      "control_lease.jog_heartbeat_timeout_ms",
+      "limits.motion_enabled",
+      "limits.program_execution_enabled",
       "limits.maximum_joint_speed_percent",
       "limits.maximum_linear_speed_mm_per_second",
-      "limits.cartesian_workspace.frame", "limits.cartesian_workspace.x_mm",
-      "limits.cartesian_workspace.y_mm", "limits.cartesian_workspace.z_mm",
+      "limits.cartesian_workspace.frame",
+      "limits.cartesian_workspace.x_mm",
+      "limits.cartesian_workspace.y_mm",
+      "limits.cartesian_workspace.z_mm",
       "security.grpc.allow_insecure_loopback",
       "security.grpc.client_ca_file",
       "security.grpc.server_certificate_chain_file",
@@ -131,9 +147,13 @@ Status CheckKnownKeys(const YamlDocument& document) {
   const std::set<std::string> known_lists = {
       "limits.joint_limits_deg", "limits.writable_digital_outputs",
       "limits.approved_programs", "security.grpc.allowed_client_common_names"};
-  const std::set<std::string> known_mappings = {
-      "service", "robot", "control_lease", "limits",
-      "limits.cartesian_workspace", "security", "security.grpc"};
+  const std::set<std::string> known_mappings = {"service",
+                                                "robot",
+                                                "control_lease",
+                                                "limits",
+                                                "limits.cartesian_workspace",
+                                                "security",
+                                                "security.grpc"};
   for (const auto& item : document.scalars) {
     if (known_scalars.count(item.first) == 0) {
       return ConfigError("unknown setting '" + item.first + "'");
@@ -145,8 +165,7 @@ Status CheckKnownKeys(const YamlDocument& document) {
     }
   }
   for (const std::string& mapping : document.mappings) {
-    if (known_mappings.count(mapping) == 0 &&
-        known_lists.count(mapping) == 0) {
+    if (known_mappings.count(mapping) == 0 && known_lists.count(mapping) == 0) {
       return ConfigError("unknown section '" + mapping + "'");
     }
   }
@@ -192,8 +211,7 @@ StatusOr<int> ParseInt(const YamlDocument& document, const std::string& key) {
   return static_cast<int>(parsed);
 }
 
-StatusOr<int> ParseIntScalar(const std::string& value,
-                             const std::string& key) {
+StatusOr<int> ParseIntScalar(const std::string& value, const std::string& key) {
   YamlDocument document;
   document.scalars.emplace(key, value);
   return ParseInt(document, key);
@@ -218,7 +236,8 @@ StatusOr<JointLimit> ParseRange(const std::string& value,
     return ConfigError("setting '" + key + "' must use min:max");
   }
   const StatusOr<double> minimum = ParseDouble(value.substr(0, separator), key);
-  const StatusOr<double> maximum = ParseDouble(value.substr(separator + 1), key);
+  const StatusOr<double> maximum =
+      ParseDouble(value.substr(separator + 1), key);
   if (!minimum.ok()) {
     return minimum.status();
   }
@@ -235,8 +254,7 @@ StatusOr<std::vector<std::string>> OptionalList(const YamlDocument& document,
                                                 const std::string& key) {
   const auto iterator = document.lists.find(key);
   if (iterator == document.lists.end()) {
-    if (document.mappings.count(key) != 0 ||
-        document.scalars.count(key) != 0) {
+    if (document.mappings.count(key) != 0 || document.scalars.count(key) != 0) {
       return ConfigError("setting '" + key + "' must be a scalar list");
     }
     return std::vector<std::string>{};
@@ -248,10 +266,8 @@ StatusOr<std::vector<std::string>> OptionalList(const YamlDocument& document,
 }
 
 bool IsLoopbackListenAddress(const std::string& address) {
-  return address.rfind("127.", 0) == 0 ||
-         address.rfind("localhost:", 0) == 0 ||
-         address.rfind("[::1]:", 0) == 0 ||
-         address.rfind("unix:", 0) == 0;
+  return address.rfind("127.", 0) == 0 || address.rfind("localhost:", 0) == 0 ||
+         address.rfind("[::1]:", 0) == 0 || address.rfind("unix:", 0) == 0;
 }
 
 }  // namespace
@@ -267,7 +283,8 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
   }
 
   ServiceConfig config;
-  const StatusOr<int> schema_version = ParseInt(document.value(), "schema_version");
+  const StatusOr<int> schema_version =
+      ParseInt(document.value(), "schema_version");
   if (!schema_version.ok()) {
     return schema_version.status();
   }
@@ -278,22 +295,36 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
       RequiredScalar(document.value(), "service.instance_id");
   const StatusOr<std::string> grpc_listen =
       RequiredScalar(document.value(), "service.grpc_listen");
-  const StatusOr<std::string> robot_id = RequiredScalar(document.value(), "robot.id");
+  const StatusOr<std::string> robot_id =
+      RequiredScalar(document.value(), "robot.id");
   const StatusOr<std::string> driver_name =
       RequiredScalar(document.value(), "robot.driver");
-  const StatusOr<std::string> address = RequiredScalar(document.value(), "robot.address");
-  const StatusOr<std::string> model_name = RequiredScalar(document.value(), "robot.model");
-  const auto axis_count_setting = document.value().scalars.find("robot.axis_count");
-  const StatusOr<bool> verify_sdk = ParseBool(document.value(), "robot.verify_sdk_version");
-  const StatusOr<bool> sdk_debug = ParseBool(document.value(), "robot.sdk_debug_logging");
-  const StatusOr<int> state_poll = ParseInt(document.value(), "service.state_poll_ms");
-  const StatusOr<int> state_stale = ParseInt(document.value(), "service.state_stale_after_ms");
-  const StatusOr<int> queue_size = ParseInt(document.value(), "service.command_queue_capacity");
-  const StatusOr<int> history_size = ParseInt(document.value(), "service.command_history_capacity");
-  const StatusOr<int> lease_ttl = ParseInt(document.value(), "control_lease.ttl_ms");
-  const StatusOr<int> jog_timeout = ParseInt(document.value(), "control_lease.jog_heartbeat_timeout_ms");
-  const StatusOr<bool> motion_enabled = ParseBool(document.value(), "limits.motion_enabled");
-  const StatusOr<bool> programs_enabled = ParseBool(document.value(), "limits.program_execution_enabled");
+  const StatusOr<std::string> address =
+      RequiredScalar(document.value(), "robot.address");
+  const StatusOr<std::string> model_name =
+      RequiredScalar(document.value(), "robot.model");
+  const auto axis_count_setting =
+      document.value().scalars.find("robot.axis_count");
+  const StatusOr<bool> verify_sdk =
+      ParseBool(document.value(), "robot.verify_sdk_version");
+  const StatusOr<bool> sdk_debug =
+      ParseBool(document.value(), "robot.sdk_debug_logging");
+  const StatusOr<int> state_poll =
+      ParseInt(document.value(), "service.state_poll_ms");
+  const StatusOr<int> state_stale =
+      ParseInt(document.value(), "service.state_stale_after_ms");
+  const StatusOr<int> queue_size =
+      ParseInt(document.value(), "service.command_queue_capacity");
+  const StatusOr<int> history_size =
+      ParseInt(document.value(), "service.command_history_capacity");
+  const StatusOr<int> lease_ttl =
+      ParseInt(document.value(), "control_lease.ttl_ms");
+  const StatusOr<int> jog_timeout =
+      ParseInt(document.value(), "control_lease.jog_heartbeat_timeout_ms");
+  const StatusOr<bool> motion_enabled =
+      ParseBool(document.value(), "limits.motion_enabled");
+  const StatusOr<bool> programs_enabled =
+      ParseBool(document.value(), "limits.program_execution_enabled");
   const StatusOr<int> maximum_joint_speed =
       ParseInt(document.value(), "limits.maximum_joint_speed_percent");
   const StatusOr<int> maximum_linear_speed =
@@ -301,20 +332,31 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
   const StatusOr<bool> insecure_loopback =
       ParseBool(document.value(), "security.grpc.allow_insecure_loopback");
   if (!instance_id.ok() || !grpc_listen.ok() || !robot_id.ok() ||
-      !driver_name.ok() || !address.ok() || !model_name.ok() || !verify_sdk.ok() ||
-      !sdk_debug.ok() || !state_poll.ok() || !state_stale.ok() ||
-      !queue_size.ok() || !history_size.ok() || !lease_ttl.ok() ||
-      !jog_timeout.ok() || !motion_enabled.ok() || !programs_enabled.ok() ||
-      !maximum_joint_speed.ok() || !maximum_linear_speed.ok() ||
-      !insecure_loopback.ok()) {
-    const std::array<Status, 19> statuses = {
-        instance_id.status(), grpc_listen.status(), robot_id.status(),
-        driver_name.status(), address.status(), model_name.status(), verify_sdk.status(),
-        sdk_debug.status(), state_poll.status(), state_stale.status(),
-        queue_size.status(), history_size.status(), lease_ttl.status(),
-        jog_timeout.status(), motion_enabled.status(), programs_enabled.status(),
-        maximum_joint_speed.status(), maximum_linear_speed.status(),
-        insecure_loopback.status()};
+      !driver_name.ok() || !address.ok() || !model_name.ok() ||
+      !verify_sdk.ok() || !sdk_debug.ok() || !state_poll.ok() ||
+      !state_stale.ok() || !queue_size.ok() || !history_size.ok() ||
+      !lease_ttl.ok() || !jog_timeout.ok() || !motion_enabled.ok() ||
+      !programs_enabled.ok() || !maximum_joint_speed.ok() ||
+      !maximum_linear_speed.ok() || !insecure_loopback.ok()) {
+    const std::array<Status, 19> statuses = {instance_id.status(),
+                                             grpc_listen.status(),
+                                             robot_id.status(),
+                                             driver_name.status(),
+                                             address.status(),
+                                             model_name.status(),
+                                             verify_sdk.status(),
+                                             sdk_debug.status(),
+                                             state_poll.status(),
+                                             state_stale.status(),
+                                             queue_size.status(),
+                                             history_size.status(),
+                                             lease_ttl.status(),
+                                             jog_timeout.status(),
+                                             motion_enabled.status(),
+                                             programs_enabled.status(),
+                                             maximum_joint_speed.status(),
+                                             maximum_linear_speed.status(),
+                                             insecure_loopback.status()};
     for (const Status& status : statuses) {
       if (!status.ok()) {
         return status;
@@ -360,7 +402,8 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
       static_cast<std::size_t>(history_size.value());
   config.safety_policy.motion_enabled = motion_enabled.value();
   config.safety_policy.program_execution_enabled = programs_enabled.value();
-  config.safety_policy.maximum_joint_speed_percent = maximum_joint_speed.value();
+  config.safety_policy.maximum_joint_speed_percent =
+      maximum_joint_speed.value();
   config.safety_policy.maximum_linear_speed_mm_per_second =
       maximum_linear_speed.value();
 
@@ -393,27 +436,38 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
     return ConfigError("motion requires verified joint limits");
   }
 
-  const auto frame = document.value().scalars.find("limits.cartesian_workspace.frame");
-  const auto x_range = document.value().scalars.find("limits.cartesian_workspace.x_mm");
-  const auto y_range = document.value().scalars.find("limits.cartesian_workspace.y_mm");
-  const auto z_range = document.value().scalars.find("limits.cartesian_workspace.z_mm");
+  const auto frame =
+      document.value().scalars.find("limits.cartesian_workspace.frame");
+  const auto x_range =
+      document.value().scalars.find("limits.cartesian_workspace.x_mm");
+  const auto y_range =
+      document.value().scalars.find("limits.cartesian_workspace.y_mm");
+  const auto z_range =
+      document.value().scalars.find("limits.cartesian_workspace.z_mm");
   const bool has_workspace = frame != document.value().scalars.end() ||
-      x_range != document.value().scalars.end() || y_range != document.value().scalars.end() ||
-      z_range != document.value().scalars.end();
+                             x_range != document.value().scalars.end() ||
+                             y_range != document.value().scalars.end() ||
+                             z_range != document.value().scalars.end();
   if (has_workspace) {
     if (frame == document.value().scalars.end() || frame->second.empty() ||
         x_range == document.value().scalars.end() ||
-        y_range == document.value().scalars.end() || z_range == document.value().scalars.end()) {
-      return ConfigError("cartesian workspace requires frame and x_mm/y_mm/z_mm ranges");
+        y_range == document.value().scalars.end() ||
+        z_range == document.value().scalars.end()) {
+      return ConfigError(
+          "cartesian workspace requires frame and x_mm/y_mm/z_mm ranges");
     }
-    const StatusOr<JointLimit> x = ParseRange(x_range->second, "limits.cartesian_workspace.x_mm");
-    const StatusOr<JointLimit> y = ParseRange(y_range->second, "limits.cartesian_workspace.y_mm");
-    const StatusOr<JointLimit> z = ParseRange(z_range->second, "limits.cartesian_workspace.z_mm");
+    const StatusOr<JointLimit> x =
+        ParseRange(x_range->second, "limits.cartesian_workspace.x_mm");
+    const StatusOr<JointLimit> y =
+        ParseRange(y_range->second, "limits.cartesian_workspace.y_mm");
+    const StatusOr<JointLimit> z =
+        ParseRange(z_range->second, "limits.cartesian_workspace.z_mm");
     if (!x.ok()) return x.status();
     if (!y.ok()) return y.status();
     if (!z.ok()) return z.status();
-    config.safety_policy.cartesian_workspace = {x.value().minimum_deg, x.value().maximum_deg,
-        y.value().minimum_deg, y.value().maximum_deg, z.value().minimum_deg, z.value().maximum_deg};
+    config.safety_policy.cartesian_workspace = {
+        x.value().minimum_deg, x.value().maximum_deg, y.value().minimum_deg,
+        y.value().maximum_deg, z.value().minimum_deg, z.value().maximum_deg};
     config.safety_policy.cartesian_workspace_frame = frame->second;
     config.safety_policy.cartesian_workspace_verified = true;
   }
@@ -424,7 +478,8 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
   for (const std::string& output : outputs.value()) {
     const StatusOr<int> index = ParseIntScalar(output, "writable output");
     if (!index.ok() || index.value() < 0) {
-      return ConfigError("limits.writable_digital_outputs contains an invalid index");
+      return ConfigError(
+          "limits.writable_digital_outputs contains an invalid index");
     }
     config.safety_policy.writable_digital_outputs.push_back(
         static_cast<std::uint32_t>(index.value()));
@@ -433,18 +488,21 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
       OptionalList(document.value(), "limits.approved_programs");
   if (!programs.ok()) return programs.status();
   config.safety_policy.approved_programs = programs.value();
-  if (config.safety_policy.program_execution_enabled && programs.value().empty()) {
+  if (config.safety_policy.program_execution_enabled &&
+      programs.value().empty()) {
     return ConfigError("program execution requires approved programs");
   }
 
   config.grpc.listen_address = grpc_listen.value();
   config.grpc.allow_insecure_loopback = insecure_loopback.value();
   const auto copy_optional = [&document, &config](const std::string& key,
-                                                   std::string* destination) {
+                                                  std::string* destination) {
     const auto iterator = document.value().scalars.find(key);
-    if (iterator != document.value().scalars.end()) *destination = iterator->second;
+    if (iterator != document.value().scalars.end())
+      *destination = iterator->second;
   };
-  copy_optional("security.grpc.client_ca_file", &config.grpc.trusted_client_ca_file);
+  copy_optional("security.grpc.client_ca_file",
+                &config.grpc.trusted_client_ca_file);
   copy_optional("security.grpc.server_certificate_chain_file",
                 &config.grpc.server_certificate_chain_file);
   copy_optional("security.grpc.server_private_key_file",
@@ -455,13 +513,16 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
   config.grpc.allowed_client_common_names = common_names.value();
   if (config.grpc.allow_insecure_loopback) {
     if (!IsLoopbackListenAddress(config.grpc.listen_address)) {
-      return ConfigError("insecure gRPC is permitted only on a loopback address");
+      return ConfigError(
+          "insecure gRPC is permitted only on a loopback address");
     }
   } else if (config.grpc.trusted_client_ca_file.empty() ||
              config.grpc.server_certificate_chain_file.empty() ||
              config.grpc.server_private_key_file.empty() ||
              config.grpc.allowed_client_common_names.empty()) {
-    return ConfigError("gRPC mTLS requires CA, certificate, private key, and allowed client names");
+    return ConfigError(
+        "gRPC mTLS requires CA, certificate, private key, and allowed client "
+        "names");
   }
   return config;
 }

@@ -1,28 +1,21 @@
-# Prerequisites
-*.d
+# Build output
+build/
 
-# Compiled Object files
+# Compiled object files
 *.slo
 *.lo
 *.o
 *.obj
 
-# Precompiled Headers
+# Precompiled headers
 *.gch
 *.pch
 
-# Compiled Dynamic libraries
+# Compiled libraries
 *.so
+*.so.*
 *.dylib
 *.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
 *.a
 *.lib
 
@@ -31,16 +24,7 @@
 *.out
 *.app
 
-# Visual Studio Code
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
-
 # CMake
-build/
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
@@ -53,27 +37,23 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 
-# log for perf
-log
-logs
-tmp
-*.rdb
-*.svg
-perf/
-perf.data*
-*.data
-*.perf
-*.folded
-palette.map
-
-# models
-*.engine
-*.onnx
-*.rknn
-*.bmodel
-
-# other directories
-*3rdparty/
+# Third-party code and vendor SDKs are injected locally, not stored here
 3rdparty/
-trash/
-test/
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Editors / OS
+*.swp
+*~
+.DS_Store
+
+# Logs and temporary files
+log/
+logs/
+tmp/

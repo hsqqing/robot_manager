@@ -1,5 +1,5 @@
 // 纯函数式状态推导逻辑，便于独立测试且不产生外部副作用。
-#include "robot/domain/state_machine.h"
+#include "robot/control/state_machine.h"
 
 namespace robot {
 

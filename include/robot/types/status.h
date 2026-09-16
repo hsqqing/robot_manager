@@ -1,6 +1,6 @@
 // 跨领域统一的错误码、错误信息和 StatusOr 返回类型。
-#ifndef ROBOT_DOMAIN_STATUS_H_
-#define ROBOT_DOMAIN_STATUS_H_
+#ifndef ROBOT_TYPES_STATUS_H_
+#define ROBOT_TYPES_STATUS_H_
 
 #include <optional>
 #include <string>
@@ -62,4 +62,4 @@ class StatusOr {
 
 }  // namespace robot
 
-#endif  // ROBOT_DOMAIN_STATUS_H_
+#endif  // ROBOT_TYPES_STATUS_H_
