@@ -5,7 +5,6 @@ schema_version: 1
 
 service:
   instance_id: er155-3200-01-edge
-  grpc_listen: 127.0.0.1:50051
   state_poll_ms: 50
   state_stale_after_ms: 500
   command_queue_capacity: 16
@@ -45,8 +44,9 @@ limits:
   #   y_mm: -1500:1500
   #   z_mm: 0:2000
 
-security:
+transport:
   grpc:
+    listen: 127.0.0.1:50051
     # Development only: plaintext is allowed solely on loopback.
     allow_insecure_loopback: true
     # For production set allow_insecure_loopback to false and configure mTLS.

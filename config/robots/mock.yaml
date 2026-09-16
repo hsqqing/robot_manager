@@ -3,7 +3,6 @@ schema_version: 1
 
 service:
   instance_id: mock-robot-01
-  grpc_listen: 127.0.0.1:50051
   state_poll_ms: 50
   state_stale_after_ms: 500
   command_queue_capacity: 16
@@ -28,6 +27,7 @@ limits:
   maximum_joint_speed_percent: 20
   maximum_linear_speed_mm_per_second: 500
 
-security:
+transport:
   grpc:
+    listen: 127.0.0.1:50051
     allow_insecure_loopback: true

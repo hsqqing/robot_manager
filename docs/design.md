@@ -610,7 +610,6 @@ schema_version: 1
 
 service:
   instance_id: robot-01-edge-a
-  grpc_listen: 127.0.0.1:50051
   state_poll_ms: 50
   state_stale_after_ms: 500
   command_queue_capacity: 16
@@ -651,8 +650,9 @@ limits:
   approved_programs:
     - approved-program
 
-security:
+transport:
   grpc:
+    listen: 127.0.0.1:50051
     allow_insecure_loopback: true
     # Production: set this false and configure all four mTLS settings below.
     # client_ca_file: /etc/robot-manager/pki/clients-ca.pem
@@ -801,7 +801,7 @@ Quick Stop 接口，因此服务明确拒绝 `QUICK_STOP`，不把 `MOVEHOLD` �
 当前 gRPC 生产模式使用 mTLS：必须配置客户端 CA、服务端证书、私钥和非空的客户端
 证书身份（CN）白名单；每个 RPC 在进入业务逻辑前校验该身份。明文 gRPC 仅用于开发，
 必须监听回环地址，并显式设置
-`security.grpc.allow_insecure_loopback: true`。控制器程序还必须列入
+`transport.grpc.allow_insecure_loopback: true`。控制器程序还必须列入
 `limits.approved_programs`，且只允许启动当前服务进程成功加载的已批准程序。
 完整核对结果和 HIL 待办见
 `docs/sdk_integration.md`。

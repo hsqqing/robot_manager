@@ -18,6 +18,7 @@
 #endif
 
 #ifdef ROBOT_HAS_GRPC
+#include "robot_manager/transport/grpc_options.h"
 #include "robot_manager/transport/grpc_server.h"
 #endif
 
@@ -64,6 +65,14 @@ int Run(const std::string& config_path) {
     std::cerr << config.status().message() << '\n';
     return 2;
   }
+#ifdef ROBOT_HAS_GRPC
+  const robot::StatusOr<robot::GrpcServerOptions> grpc =
+      robot::LoadGrpcServerOptions(config_path);
+  if (!grpc.ok()) {
+    std::cerr << grpc.status().message() << '\n';
+    return 2;
+  }
+#endif
 
   std::unique_ptr<robot::IRobotDriver> driver =
       CreateDriver(config.value().driver_name);
@@ -92,7 +101,7 @@ int Run(const std::string& config_path) {
 #ifdef ROBOT_HAS_GRPC
   // RunGrpcServer 会阻塞到收到 SIGINT/SIGTERM；返回后统一关闭执行器。
   const robot::Status server_status =
-      robot::RunGrpcServer(config.value().grpc, config.value().connection.robot_id,
+      robot::RunGrpcServer(grpc.value(), config.value().connection.robot_id,
                            &executor, &g_stop_requested);
   if (!server_status.ok()) {
     std::cerr << server_status.message() << '\n';

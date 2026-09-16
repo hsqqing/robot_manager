@@ -165,12 +165,12 @@ all use `libEftSdk.so`. At connection time the service calls
 `GetCurrentRobotType` and rejects a configured/actual model mismatch.
 
 The gRPC schema is in `api/proto/robot/v1/robot_control.proto`. Production
-gRPC requires mTLS: configure `security.grpc.client_ca_file`,
-`security.grpc.server_certificate_chain_file`,
-`security.grpc.server_private_key_file`, and a nonempty
-`security.grpc.allowed_client_common_names` allowlist. Plaintext gRPC is
+gRPC requires mTLS: configure `transport.grpc.client_ca_file`,
+`transport.grpc.server_certificate_chain_file`,
+`transport.grpc.server_private_key_file`, and a nonempty
+`transport.grpc.allowed_client_common_names` allowlist. Plaintext gRPC is
 development-only, must bind to loopback, and requires
-`security.grpc.allow_insecure_loopback: true` explicitly.
+`transport.grpc.allow_insecure_loopback: true` explicitly.
 
 The configuration parser accepts the documented YAML mapping/list subset only,
 requires `schema_version: 1`, and rejects unknown, duplicate, missing, or

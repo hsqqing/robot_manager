@@ -1,5 +1,7 @@
 #include "robot/config/config_loader.h"
 
+#include "robot/config/config_document.h"
+
 #include <algorithm>
 #include <array>
 #include <cerrno>
@@ -23,12 +25,6 @@
 namespace robot {
 namespace {
 
-struct YamlDocument {
-  std::map<std::string, std::string> scalars;
-  std::map<std::string, std::vector<std::string>> lists;
-  std::set<std::string> mappings;
-};
-
 Status ConfigError(const std::string& message) {
   return Status(StatusCode::kInvalidArgument, "configuration: " + message);
 }
@@ -38,7 +34,7 @@ std::string YamlString(ryml::csubstr value) {
 }
 
 Status ReadMapping(ryml::ConstNodeRef node, const std::string& prefix,
-                   YamlDocument& document) {
+                   ConfigDocument& document) {
   if (!node.is_map()) {
     return ConfigError("expected a mapping at '" + prefix + "'");
   }
@@ -77,7 +73,7 @@ Status ReadMapping(ryml::ConstNodeRef node, const std::string& prefix,
   return Status::Ok();
 }
 
-StatusOr<YamlDocument> ParseYaml(const std::string& path) {
+StatusOr<ConfigDocument> ParseYaml(const std::string& path) {
   std::ifstream input(path);
   if (!input) {
     return Status(StatusCode::kNotFound, "cannot open configuration: " + path);
@@ -105,7 +101,7 @@ StatusOr<YamlDocument> ParseYaml(const std::string& path) {
     ryml::Tree tree(callbacks);
     ryml::parse_in_arena(ryml::to_csubstr(path), ryml::to_csubstr(source),
                          &tree);
-    YamlDocument document;
+    ConfigDocument document;
     const Status status = ReadMapping(tree.crootref(), "", document);
     if (!status.ok()) return status;
     return document;
@@ -114,11 +110,10 @@ StatusOr<YamlDocument> ParseYaml(const std::string& path) {
   }
 }
 
-Status CheckKnownKeys(const YamlDocument& document) {
+Status CheckKnownKeys(const ConfigDocument& document) {
   const std::set<std::string> known_scalars = {
       "schema_version",
       "service.instance_id",
-      "service.grpc_listen",
       "service.state_poll_ms",
       "service.state_stale_after_ms",
       "service.command_queue_capacity",
@@ -139,40 +134,41 @@ Status CheckKnownKeys(const YamlDocument& document) {
       "limits.cartesian_workspace.frame",
       "limits.cartesian_workspace.x_mm",
       "limits.cartesian_workspace.y_mm",
-      "limits.cartesian_workspace.z_mm",
-      "security.grpc.allow_insecure_loopback",
-      "security.grpc.client_ca_file",
-      "security.grpc.server_certificate_chain_file",
-      "security.grpc.server_private_key_file"};
+      "limits.cartesian_workspace.z_mm"};
   const std::set<std::string> known_lists = {
       "limits.joint_limits_deg", "limits.writable_digital_outputs",
-      "limits.approved_programs", "security.grpc.allowed_client_common_names"};
+      "limits.approved_programs"};
   const std::set<std::string> known_mappings = {"service",
                                                 "robot",
                                                 "control_lease",
                                                 "limits",
                                                 "limits.cartesian_workspace",
-                                                "security",
-                                                "security.grpc"};
+                                                "transport"};
+  const auto is_transport_extension = [](const std::string& key) {
+    return key.rfind("transport.", 0) == 0;
+  };
   for (const auto& item : document.scalars) {
-    if (known_scalars.count(item.first) == 0) {
+    if (known_scalars.count(item.first) == 0 &&
+        !is_transport_extension(item.first)) {
       return ConfigError("unknown setting '" + item.first + "'");
     }
   }
   for (const auto& item : document.lists) {
-    if (known_lists.count(item.first) == 0) {
+    if (known_lists.count(item.first) == 0 &&
+        !is_transport_extension(item.first)) {
       return ConfigError("unknown list setting '" + item.first + "'");
     }
   }
   for (const std::string& mapping : document.mappings) {
-    if (known_mappings.count(mapping) == 0 && known_lists.count(mapping) == 0) {
+    if (known_mappings.count(mapping) == 0 && known_lists.count(mapping) == 0 &&
+        !is_transport_extension(mapping)) {
       return ConfigError("unknown section '" + mapping + "'");
     }
   }
   return Status::Ok();
 }
 
-StatusOr<std::string> RequiredScalar(const YamlDocument& document,
+StatusOr<std::string> RequiredScalar(const ConfigDocument& document,
                                      const std::string& key) {
   const auto iterator = document.scalars.find(key);
   if (iterator == document.scalars.end() || iterator->second.empty()) {
@@ -181,7 +177,8 @@ StatusOr<std::string> RequiredScalar(const YamlDocument& document,
   return iterator->second;
 }
 
-StatusOr<bool> ParseBool(const YamlDocument& document, const std::string& key) {
+StatusOr<bool> ParseBool(const ConfigDocument& document,
+                         const std::string& key) {
   const StatusOr<std::string> value = RequiredScalar(document, key);
   if (!value.ok()) {
     return value.status();
@@ -195,7 +192,7 @@ StatusOr<bool> ParseBool(const YamlDocument& document, const std::string& key) {
   return ConfigError("setting '" + key + "' must be true or false");
 }
 
-StatusOr<int> ParseInt(const YamlDocument& document, const std::string& key) {
+StatusOr<int> ParseInt(const ConfigDocument& document, const std::string& key) {
   const StatusOr<std::string> value = RequiredScalar(document, key);
   if (!value.ok()) {
     return value.status();
@@ -212,7 +209,7 @@ StatusOr<int> ParseInt(const YamlDocument& document, const std::string& key) {
 }
 
 StatusOr<int> ParseIntScalar(const std::string& value, const std::string& key) {
-  YamlDocument document;
+  ConfigDocument document;
   document.scalars.emplace(key, value);
   return ParseInt(document, key);
 }
@@ -250,7 +247,7 @@ StatusOr<JointLimit> ParseRange(const std::string& value,
   return JointLimit{minimum.value(), maximum.value()};
 }
 
-StatusOr<std::vector<std::string>> OptionalList(const YamlDocument& document,
+StatusOr<std::vector<std::string>> OptionalList(const ConfigDocument& document,
                                                 const std::string& key) {
   const auto iterator = document.lists.find(key);
   if (iterator == document.lists.end()) {
@@ -265,15 +262,14 @@ StatusOr<std::vector<std::string>> OptionalList(const YamlDocument& document,
   return iterator->second;
 }
 
-bool IsLoopbackListenAddress(const std::string& address) {
-  return address.rfind("127.", 0) == 0 || address.rfind("localhost:", 0) == 0 ||
-         address.rfind("[::1]:", 0) == 0 || address.rfind("unix:", 0) == 0;
-}
-
 }  // namespace
 
+StatusOr<ConfigDocument> LoadConfigDocument(const std::string& path) {
+  return ParseYaml(path);
+}
+
 StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
-  const StatusOr<YamlDocument> document = ParseYaml(path);
+  const StatusOr<ConfigDocument> document = LoadConfigDocument(path);
   if (!document.ok()) {
     return document.status();
   }
@@ -293,8 +289,6 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
   }
   const StatusOr<std::string> instance_id =
       RequiredScalar(document.value(), "service.instance_id");
-  const StatusOr<std::string> grpc_listen =
-      RequiredScalar(document.value(), "service.grpc_listen");
   const StatusOr<std::string> robot_id =
       RequiredScalar(document.value(), "robot.id");
   const StatusOr<std::string> driver_name =
@@ -329,17 +323,14 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
       ParseInt(document.value(), "limits.maximum_joint_speed_percent");
   const StatusOr<int> maximum_linear_speed =
       ParseInt(document.value(), "limits.maximum_linear_speed_mm_per_second");
-  const StatusOr<bool> insecure_loopback =
-      ParseBool(document.value(), "security.grpc.allow_insecure_loopback");
-  if (!instance_id.ok() || !grpc_listen.ok() || !robot_id.ok() ||
+  if (!instance_id.ok() || !robot_id.ok() ||
       !driver_name.ok() || !address.ok() || !model_name.ok() ||
       !verify_sdk.ok() || !sdk_debug.ok() || !state_poll.ok() ||
       !state_stale.ok() || !queue_size.ok() || !history_size.ok() ||
       !lease_ttl.ok() || !jog_timeout.ok() || !motion_enabled.ok() ||
       !programs_enabled.ok() || !maximum_joint_speed.ok() ||
-      !maximum_linear_speed.ok() || !insecure_loopback.ok()) {
-    const std::array<Status, 19> statuses = {instance_id.status(),
-                                             grpc_listen.status(),
+      !maximum_linear_speed.ok()) {
+    const std::array<Status, 17> statuses = {instance_id.status(),
                                              robot_id.status(),
                                              driver_name.status(),
                                              address.status(),
@@ -355,8 +346,7 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
                                              motion_enabled.status(),
                                              programs_enabled.status(),
                                              maximum_joint_speed.status(),
-                                             maximum_linear_speed.status(),
-                                             insecure_loopback.status()};
+                                             maximum_linear_speed.status()};
     for (const Status& status : statuses) {
       if (!status.ok()) {
         return status;
@@ -493,37 +483,6 @@ StatusOr<ServiceConfig> LoadServiceConfig(const std::string& path) {
     return ConfigError("program execution requires approved programs");
   }
 
-  config.grpc.listen_address = grpc_listen.value();
-  config.grpc.allow_insecure_loopback = insecure_loopback.value();
-  const auto copy_optional = [&document, &config](const std::string& key,
-                                                  std::string* destination) {
-    const auto iterator = document.value().scalars.find(key);
-    if (iterator != document.value().scalars.end())
-      *destination = iterator->second;
-  };
-  copy_optional("security.grpc.client_ca_file",
-                &config.grpc.trusted_client_ca_file);
-  copy_optional("security.grpc.server_certificate_chain_file",
-                &config.grpc.server_certificate_chain_file);
-  copy_optional("security.grpc.server_private_key_file",
-                &config.grpc.server_private_key_file);
-  const StatusOr<std::vector<std::string>> common_names = OptionalList(
-      document.value(), "security.grpc.allowed_client_common_names");
-  if (!common_names.ok()) return common_names.status();
-  config.grpc.allowed_client_common_names = common_names.value();
-  if (config.grpc.allow_insecure_loopback) {
-    if (!IsLoopbackListenAddress(config.grpc.listen_address)) {
-      return ConfigError(
-          "insecure gRPC is permitted only on a loopback address");
-    }
-  } else if (config.grpc.trusted_client_ca_file.empty() ||
-             config.grpc.server_certificate_chain_file.empty() ||
-             config.grpc.server_private_key_file.empty() ||
-             config.grpc.allowed_client_common_names.empty()) {
-    return ConfigError(
-        "gRPC mTLS requires CA, certificate, private key, and allowed client "
-        "names");
-  }
   return config;
 }
 

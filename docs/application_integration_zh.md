@@ -101,7 +101,6 @@ schema_version: 1
 
 service:
   instance_id: er7-900-01-edge
-  grpc_listen: 127.0.0.1:50051
   state_poll_ms: 50
   state_stale_after_ms: 500
   command_queue_capacity: 16
@@ -123,8 +122,9 @@ limits:
   maximum_joint_speed_percent: 20
   maximum_linear_speed_mm_per_second: 500
 
-security:
+transport:
   grpc:
+    listen: 127.0.0.1:50051
     allow_insecure_loopback: true
 ```
 
@@ -1184,7 +1184,7 @@ grpcurl -plaintext \
 生产配置应关闭明文 gRPC：
 
 ```yaml
-security:
+transport:
   grpc:
     allow_insecure_loopback: false
     client_ca_file: /etc/robot-manager/pki/clients-ca.pem
