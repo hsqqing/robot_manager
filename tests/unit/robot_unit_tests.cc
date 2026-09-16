@@ -190,6 +190,10 @@ void TestCommandGuard() {
   Expect(!guard.Validate(request, snapshot, true, false).ok(),
          "global speed above the site limit should be rejected");
 
+  request.type = robot::CommandType::kPowerOff;
+  Expect(!guard.Validate(request, snapshot, true, false).ok(),
+         "commands without payloads should reject an unexpected payload");
+
   request.type = robot::CommandType::kJog;
   request.payload = robot::JogCommand{};
   Expect(!guard.Validate(request, snapshot, true, false).ok(),
@@ -345,6 +349,29 @@ void TestCommandExecutor() {
   }
   Expect(WaitForState(&executor, robot::RobotLifecycleState::kReady),
          "automatic mode should restore the ready state");
+
+  auto deadline_move = BasicRequest(robot::CommandType::kMoveJ, client_id,
+                                    lease.value().id, "queue-deadline-move");
+  deadline_move.payload = move_payload;
+  const auto deadline_move_id = executor.Submit(deadline_move);
+  Expect(deadline_move_id.ok(), "deadline test motion should be accepted");
+  Expect(WaitForState(&executor, robot::RobotLifecycleState::kExecuting),
+         "deadline test motion should start");
+  auto queued_speed = BasicRequest(robot::CommandType::kSetGlobalSpeed,
+                                   client_id, lease.value().id,
+                                   "queued-command-deadline");
+  queued_speed.payload = robot::SpeedPayload{10};
+  queued_speed.timeout = std::chrono::milliseconds(50);
+  const auto queued_speed_id = executor.Submit(queued_speed);
+  Expect(queued_speed_id.ok(), "short-lived queued command should be accepted");
+  Expect(queued_speed_id.ok() &&
+             WaitForCommand(&executor, queued_speed_id.value(),
+                            robot::CommandState::kTimedOut),
+         "queued command should time out before execution");
+  Expect(deadline_move_id.ok() &&
+             WaitForCommand(&executor, deadline_move_id.value(),
+                            robot::CommandState::kSucceeded),
+         "deadline test motion should still complete");
 
   auto lease_release_move = BasicRequest(
       robot::CommandType::kMoveJ, client_id, lease.value().id,

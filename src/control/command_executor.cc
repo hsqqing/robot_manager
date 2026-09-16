@@ -188,6 +188,7 @@ class CommandExecutor::Impl {
     {
       std::lock_guard<std::mutex> lock(mutex_);
       latest_state_ = initial_state.value();
+      latest_state_.observed_at = std::chrono::steady_clock::now();
       latest_state_.sequence = 1;
       latest_state_.lifecycle = DeriveLifecycleState(latest_state_);
       shutting_down_ = false;
@@ -395,7 +396,32 @@ class CommandExecutor::Impl {
                     "no approved program was loaded by this service");
     }
     if (queue_.size() >= options_.maximum_queue_size) {
-      return Status(StatusCode::kResourceExhausted, "command queue is full");
+      if (request.type != CommandType::kStop) {
+        return Status(StatusCode::kResourceExhausted, "command queue is full");
+      }
+      // Keep the queue bounded while ensuring a safety stop can displace the
+      // newest ordinary command when producers have saturated the queue.
+      bool made_room = false;
+      auto queued = queue_.end();
+      while (queued != queue_.begin()) {
+        --queued;
+        auto displaced = commands_.find(*queued);
+        if (displaced != commands_.end() &&
+            displaced->second.request.type != CommandType::kStop) {
+          displaced->second.state = CommandState::kCancelled;
+          displaced->second.result = Status(
+              StatusCode::kResourceExhausted,
+              "command was displaced by a safety stop");
+          displaced->second.updated_at = std::chrono::steady_clock::now();
+          queue_.erase(queued);
+          made_room = true;
+          break;
+        }
+      }
+      if (!made_room) {
+        return Status(StatusCode::kResourceExhausted,
+                      "command queue is full of stop requests");
+      }
     }
     PruneCommandHistoryLocked();
     if (commands_.size() >= options_.maximum_command_history) {
@@ -496,6 +522,15 @@ class CommandExecutor::Impl {
         });
   }
 
+  bool HasExpiredQueuedCommandLocked() const {
+    const auto now = std::chrono::steady_clock::now();
+    return std::any_of(queue_.begin(), queue_.end(), [this, now](auto id) {
+      const auto command = commands_.find(id);
+      return command == commands_.end() ||
+             now - command->second.created_at >= command->second.request.timeout;
+    });
+  }
+
   void WorkerLoop() {
     // 唯一的 SDK 写入线程：从队列取命令，二次执行安全校验，再调用驱动。
     // 二次校验用于覆盖“入队后状态/租约发生变化”的竞态窗口。
@@ -505,6 +540,7 @@ class CommandExecutor::Impl {
         std::unique_lock<std::mutex> lock(mutex_);
         condition_.wait(lock, [this] {
           return shutting_down_ ||
+                 HasExpiredQueuedCommandLocked() ||
                  FindExecutableCommandLocked() != queue_.end();
         });
         if (shutting_down_) {
@@ -520,8 +556,18 @@ class CommandExecutor::Impl {
         if (command == commands_.end()) {
           continue;
         }
+        const auto now = std::chrono::steady_clock::now();
+        if (now - command->second.created_at >=
+            command->second.request.timeout) {
+          command->second.state = CommandState::kTimedOut;
+          command->second.result = Status(
+              StatusCode::kDeadlineExceeded,
+              "command timed out before execution");
+          command->second.updated_at = now;
+          continue;
+        }
         command->second.state = CommandState::kRunning;
-        command->second.updated_at = std::chrono::steady_clock::now();
+        command->second.updated_at = now;
         record = command->second;
       }
 
@@ -749,6 +795,9 @@ class CommandExecutor::Impl {
         if (state.ok()) {
           const std::uint64_t next_sequence = latest_state_.sequence + 1;
           latest_state_ = state.value();
+          // Freshness is measured at the service boundary. Adapters need not
+          // share clocks or remember to stamp every successful read.
+          latest_state_.observed_at = state_poll_now;
           latest_state_.sequence = next_sequence;
           latest_state_.lifecycle = DeriveLifecycleState(latest_state_);
           update_active_motion = true;
@@ -800,8 +849,9 @@ class CommandExecutor::Impl {
     }
 
     const auto now = std::chrono::steady_clock::now();
-    const auto elapsed = now - active_motion_started_at_;
-    if (elapsed > command->second.request.timeout) {
+    const auto total_elapsed = now - command->second.created_at;
+    const auto startup_elapsed = now - active_motion_started_at_;
+    if (total_elapsed >= command->second.request.timeout) {
       if (!IsTerminal(command->second.state)) {
         command->second.state = CommandState::kTimedOut;
         command->second.result =
@@ -839,7 +889,7 @@ class CommandExecutor::Impl {
         active_motion_seen_ = true;
         return;
       }
-      if (active_motion_seen_ || elapsed >= options_.motion_start_grace) {
+      if (active_motion_seen_ || startup_elapsed >= options_.motion_start_grace) {
         if (!IsTerminal(command->second.state)) {
           command->second.state = CommandState::kSucceeded;
           command->second.result = Status::Ok();
@@ -855,7 +905,7 @@ class CommandExecutor::Impl {
       active_motion_seen_ = true;
       return;
     }
-    if (active_motion_seen_ || elapsed >= options_.motion_start_grace) {
+    if (active_motion_seen_ || startup_elapsed >= options_.motion_start_grace) {
       if (!IsTerminal(command->second.state)) {
         command->second.state = CommandState::kSucceeded;
         command->second.result = Status::Ok();

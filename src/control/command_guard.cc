@@ -36,6 +36,51 @@ Status RequireLease(bool lease_valid) {
   return Status::Ok();
 }
 
+Status ValidatePayloadType(const CommandRequest& request) {
+  const bool empty = std::holds_alternative<std::monostate>(request.payload);
+  bool valid = false;
+  switch (request.type) {
+    case CommandType::kAcquireControl:
+    case CommandType::kReleaseControl:
+    case CommandType::kPowerOn:
+    case CommandType::kPowerOff:
+    case CommandType::kClearFault:
+    case CommandType::kHold:
+    case CommandType::kResume:
+    case CommandType::kStartProgram:
+    case CommandType::kStopProgram:
+      valid = empty;
+      break;
+    case CommandType::kSetGlobalSpeed:
+      valid = std::holds_alternative<SpeedPayload>(request.payload);
+      break;
+    case CommandType::kMoveJ:
+      valid = std::holds_alternative<MoveJPayload>(request.payload);
+      break;
+    case CommandType::kMoveL:
+      valid = std::holds_alternative<MoveLPayload>(request.payload);
+      break;
+    case CommandType::kMoveC:
+      valid = std::holds_alternative<MoveCPayload>(request.payload);
+      break;
+    case CommandType::kStop:
+      valid = empty || std::holds_alternative<StopPayload>(request.payload);
+      break;
+    case CommandType::kJog:
+      valid = std::holds_alternative<JogCommand>(request.payload);
+      break;
+    case CommandType::kWriteDigitalOutput:
+      valid = std::holds_alternative<DigitalOutputPayload>(request.payload);
+      break;
+    case CommandType::kLoadProgram:
+      valid = std::holds_alternative<ProgramPayload>(request.payload);
+      break;
+  }
+  return valid ? Status::Ok()
+               : Status(StatusCode::kInvalidArgument,
+                        "command payload has the wrong type");
+}
+
 }  // namespace
 
 CommandGuard::CommandGuard(SafetyPolicy policy) : policy_(std::move(policy)) {}
@@ -45,13 +90,13 @@ Status CommandGuard::Validate(const CommandRequest& request,
                               bool jog_active) const {
   // 此处是所有控制命令的统一软件安全门禁。Stop 保持最小前置条件，
   // 其余命令按类型检查租约、控制器状态、参数和站点配置。
+  const Status payload_status = ValidatePayloadType(request);
+  if (!payload_status.ok()) {
+    return payload_status;
+  }
+
   switch (request.type) {
     case CommandType::kStop:
-      if (!std::holds_alternative<std::monostate>(request.payload) &&
-          std::get_if<StopPayload>(&request.payload) == nullptr) {
-        return Status(StatusCode::kInvalidArgument,
-                      "stop payload has the wrong type");
-      }
       return snapshot.connected ? Status::Ok()
                                 : Status(StatusCode::kFailedPrecondition,
                                          "robot is not connected");
