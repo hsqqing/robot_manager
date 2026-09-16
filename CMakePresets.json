@@ -1,0 +1,83 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "linux-mock-debug",
+      "displayName": "Linux Mock Debug",
+      "description": "Mock driver without EFORT SDK or gRPC",
+      "binaryDir": "${sourceDir}/build/linux-mock-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ROBOT_ENABLE_EFORT": "OFF",
+        "ROBOT_ENABLE_GRPC": "OFF",
+        "ROBOT_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "linux-efort-release",
+      "displayName": "Linux EFORT Release",
+      "description": "EFORT SDK and gRPC production build",
+      "binaryDir": "${sourceDir}/build/linux-efort-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ROBOT_ENABLE_EFORT": "ON",
+        "ROBOT_ENABLE_GRPC": "ON",
+        "ROBOT_BUILD_TESTS": "ON",
+        "EFORT_SDK_ROOT": "${sourceDir}/3rdparty/efort_sdk",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/3rdparty/grpc/install"
+      }
+    },
+    {
+      "name": "linux-mock-dev",
+      "displayName": "Linux Mock Development",
+      "description": "Mock driver build with the dev version stage",
+      "inherits": "linux-mock-debug",
+      "binaryDir": "${sourceDir}/build/linux-mock-dev",
+      "cacheVariables": {
+        "ROBOT_VERSION_STAGE": "dev"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-mock-debug",
+      "configurePreset": "linux-mock-debug"
+    },
+    {
+      "name": "linux-efort-release",
+      "configurePreset": "linux-efort-release"
+    },
+    {
+      "name": "linux-mock-dev",
+      "configurePreset": "linux-mock-dev"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-mock-debug",
+      "configurePreset": "linux-mock-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-efort-release",
+      "configurePreset": "linux-efort-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-mock-dev",
+      "configurePreset": "linux-mock-dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

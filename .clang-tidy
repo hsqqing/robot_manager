@@ -1,0 +1,13 @@
+Checks: >-
+  -*,
+  bugprone-*,
+  google-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -google-readability-todo,
+  -modernize-use-trailing-return-type
+WarningsAsErrors: ''
+HeaderFilterRegex: '^(include|src|apps|tests)/'
+SystemHeaders: false
+

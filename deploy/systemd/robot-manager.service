@@ -1,0 +1,32 @@
+[Unit]
+Description=EFORT robot control service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=robot-manager
+Group=robot-manager
+Environment=LD_LIBRARY_PATH=/usr/local/lib/robot-manager
+ExecStart=/usr/local/bin/robot-manager --config /etc/robot-manager/robot.yaml
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=10s
+KillSignal=SIGTERM
+WorkingDirectory=/var/lib/robot-manager
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/var/lib/robot-manager /var/log/robot-manager
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,256 @@
+syntax = "proto3";
+
+package robot.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service RobotControlService {
+  // 租约将“谁可以写控制器”与网络连接解耦；所有会改变机器人状态的命令
+  // 都须携带有效 lease_id。
+  rpc AcquireControlLease(AcquireControlLeaseRequest)
+      returns (ControlLease);
+  rpc RenewControlLease(RenewControlLeaseRequest) returns (ControlLease);
+  rpc ReleaseControlLease(ReleaseControlLeaseRequest)
+      returns (google.protobuf.Empty);
+
+  rpc SubmitCommand(CommandRequest) returns (CommandAccepted);
+  rpc GetCommand(GetCommandRequest) returns (Command);
+  rpc GetState(GetStateRequest) returns (RobotState);
+  rpc StreamState(StreamStateRequest) returns (stream RobotState);
+  rpc ReadAlarms(GetStateRequest) returns (AlarmList);
+  rpc ReadDigitalInput(ReadDigitalIoRequest) returns (DigitalIoValue);
+  rpc ReadDigitalOutput(ReadDigitalIoRequest) returns (DigitalIoValue);
+}
+
+message AcquireControlLeaseRequest {
+  string robot_id = 1;
+  string client_id = 2;
+}
+
+message RenewControlLeaseRequest {
+  string robot_id = 1;
+  string client_id = 2;
+  string lease_id = 3;
+}
+
+message ReleaseControlLeaseRequest {
+  string robot_id = 1;
+  string client_id = 2;
+  string lease_id = 3;
+}
+
+message ControlLease {
+  string lease_id = 1;
+  string client_id = 2;
+  int64 expires_in_ms = 3;
+}
+
+message JointPosition {
+  repeated double degrees = 1;
+}
+
+message CartesianPose {
+  double x_mm = 1;
+  double y_mm = 2;
+  double z_mm = 3;
+  double a_deg = 4;
+  double b_deg = 5;
+  double c_deg = 6;
+  int32 configuration = 7;
+  int32 joint_1_turn = 8;
+  int32 joint_4_turn = 9;
+  int32 joint_6_turn = 10;
+}
+
+message MoveJ {
+  JointPosition target = 1;
+  int32 speed_percent = 2;
+  double blend = 3;
+  string tool_name = 4;
+  string work_object_name = 5;
+}
+
+message MoveL {
+  CartesianPose target = 1;
+  int32 speed_mm_per_second = 2;
+  double blend_mm = 3;
+  string tool_name = 4;
+  string work_object_name = 5;
+}
+
+message MoveC {
+  CartesianPose via = 1;
+  CartesianPose target = 2;
+  int32 speed_mm_per_second = 3;
+  double blend_mm = 4;
+  string tool_name = 5;
+  string work_object_name = 6;
+}
+
+enum StopMode {
+  STOP_MODE_UNSPECIFIED = 0;
+  STOP_MODE_CONTROLLED = 1;
+  STOP_MODE_QUICK = 2;
+  STOP_MODE_POWER_OFF_REQUEST = 3;
+}
+
+message Stop { StopMode mode = 1; }
+
+message SetGlobalSpeed { uint32 ratio = 1; }
+
+message WriteDigitalOutput {
+  uint32 index = 1;
+  bool value = 2;
+}
+
+message Program { string name = 1; }
+
+enum JogFrame {
+  JOG_FRAME_UNSPECIFIED = 0;
+  JOG_FRAME_JOINT = 1;
+  JOG_FRAME_ROBOT = 2;
+  JOG_FRAME_TOOL = 3;
+  JOG_FRAME_USER = 4;
+  JOG_FRAME_WORLD = 5;
+}
+
+message Jog {
+  JogFrame frame = 1;
+  uint32 axis = 2;
+  int32 direction = 3;
+  // While true, send a new command with a new idempotency_key before the
+  // configured jog watchdog expires. A retry with the same key does not
+  // refresh the watchdog.
+  bool start = 4;
+}
+
+message NoPayload {}
+
+message CommandRequest {
+  // 一次请求只允许携带 oneof 中的一种命令，服务端转换为厂商无关的领域命令。
+  string robot_id = 1;
+  string client_id = 2;
+  string lease_id = 3;
+  // Unique per logical command. Periodic jog heartbeats are distinct logical
+  // commands and therefore require distinct keys.
+  string idempotency_key = 4;
+  int64 timeout_ms = 5;
+
+  oneof command {
+    NoPayload acquire_control = 10;
+    NoPayload release_control = 11;
+    NoPayload power_on = 12;
+    NoPayload power_off = 13;
+    NoPayload clear_fault = 14;
+    SetGlobalSpeed set_global_speed = 15;
+    MoveJ move_j = 16;
+    MoveL move_l = 17;
+    MoveC move_c = 18;
+    NoPayload hold = 19;
+    NoPayload resume = 20;
+    Stop stop = 21;
+    Jog jog = 22;
+    WriteDigitalOutput write_digital_output = 23;
+    Program load_program = 24;
+    NoPayload start_program = 25;
+    NoPayload stop_program = 26;
+  }
+}
+
+message CommandAccepted { uint64 command_id = 1; }
+
+message GetCommandRequest {
+  string robot_id = 1;
+  uint64 command_id = 2;
+}
+
+enum CommandState {
+  COMMAND_STATE_UNSPECIFIED = 0;
+  COMMAND_STATE_QUEUED = 1;
+  COMMAND_STATE_RUNNING = 2;
+  COMMAND_STATE_SUCCEEDED = 3;
+  COMMAND_STATE_FAILED = 4;
+  COMMAND_STATE_CANCELLED = 5;
+  COMMAND_STATE_TIMED_OUT = 6;
+  COMMAND_STATE_STOPPED = 7;
+}
+
+message Command {
+  uint64 command_id = 1;
+  CommandState state = 2;
+  string error_message = 3;
+  int32 vendor_error_code = 4;
+}
+
+message GetStateRequest { string robot_id = 1; }
+
+message StreamStateRequest {
+  string robot_id = 1;
+  uint32 maximum_rate_hz = 2;
+}
+
+enum LifecycleState {
+  LIFECYCLE_STATE_UNSPECIFIED = 0;
+  LIFECYCLE_STATE_DISCONNECTED = 1;
+  LIFECYCLE_STATE_CONNECTING = 2;
+  LIFECYCLE_STATE_STANDBY = 3;
+  LIFECYCLE_STATE_READY = 4;
+  LIFECYCLE_STATE_EXECUTING = 5;
+  LIFECYCLE_STATE_PAUSED = 6;
+  LIFECYCLE_STATE_FAULT = 7;
+  LIFECYCLE_STATE_EMERGENCY_STOP = 8;
+  LIFECYCLE_STATE_UNKNOWN = 9;
+}
+
+enum ControllerMode {
+  CONTROLLER_MODE_UNSPECIFIED = 0;
+  CONTROLLER_MODE_MANUAL = 1;
+  CONTROLLER_MODE_MANUAL_FAST = 2;
+  CONTROLLER_MODE_AUTOMATIC = 3;
+  CONTROLLER_MODE_UNKNOWN = 4;
+}
+
+message RobotState {
+  string robot_id = 1;
+  uint64 sequence = 2;
+  google.protobuf.Timestamp observed_at = 3;
+  LifecycleState lifecycle = 4;
+  bool connected = 5;
+  bool api_control = 6;
+  bool servo_on = 7;
+  bool emergency_stop = 8;
+  bool alarm_active = 9;
+  bool moving = 10;
+  bool paused = 11;
+  uint32 speed_ratio = 12;
+  double tcp_speed_mm_per_second = 13;
+  string controller_model = 14;
+  string active_tool = 15;
+  string active_work_object = 16;
+  JointPosition joints = 17;
+  CartesianPose tcp_pose = 18;
+  bool program_running = 19;
+  ControllerMode controller_mode = 20;
+  uint64 state_age_ms = 21;
+  bool state_stale = 22;
+}
+
+message Alarm {
+  int32 code = 1;
+  int32 severity = 2;
+  string occurred_at = 3;
+  string message = 4;
+}
+
+message AlarmList { repeated Alarm alarms = 1; }
+
+message ReadDigitalIoRequest {
+  string robot_id = 1;
+  uint32 index = 2;
+}
+
+message DigitalIoValue {
+  uint32 index = 1;
+  bool value = 2;
+}

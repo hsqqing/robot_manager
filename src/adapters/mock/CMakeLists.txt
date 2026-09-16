@@ -1,0 +1,5 @@
+add_library(robot_mock mock_driver.cc)
+target_include_directories(robot_mock PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(robot_mock PUBLIC robot_core)
+target_compile_definitions(robot_mock PUBLIC ROBOT_HAS_MOCK=1)
+robot_enable_warnings(robot_mock)

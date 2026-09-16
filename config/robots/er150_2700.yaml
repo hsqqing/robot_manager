@@ -1,0 +1,57 @@
+# Copy to /etc/robot-manager/robot.yaml and replace all site-specific values.
+# Motion and controller program execution stay disabled until a qualified site
+# integrator has verified the limits and approved the controller programs.
+schema_version: 1
+
+service:
+  instance_id: er150-2700-01-edge
+  grpc_listen: 127.0.0.1:50051
+  state_poll_ms: 50
+  state_stale_after_ms: 500
+  command_queue_capacity: 16
+  command_history_capacity: 4096
+
+robot:
+  id: er150-2700-01
+  driver: efort
+  address: 192.168.1.12
+  model: ER150-2700
+  axis_count: 6
+  verify_sdk_version: true
+  sdk_debug_logging: false
+
+control_lease:
+  ttl_ms: 3000
+  jog_heartbeat_timeout_ms: 300
+
+limits:
+  motion_enabled: false
+  program_execution_enabled: false
+  maximum_joint_speed_percent: 20
+  maximum_linear_speed_mm_per_second: 500
+  # Add exactly six site-verified min:max degree ranges before enabling motion.
+  # joint_limits_deg:
+  #   - -170:170
+  # Writable EFORT DOut indexes for upper-layer applications.
+  # writable_digital_outputs:
+  #   - 0
+  # Programs must be listed here before program_execution_enabled may be true.
+  # approved_programs:
+  #   - approved-program
+  # MoveL/MoveC require all four fields below. Ranges use min:max in mm.
+  # cartesian_workspace:
+  #   frame: wobj0
+  #   x_mm: -1500:1500
+  #   y_mm: -1500:1500
+  #   z_mm: 0:2000
+
+security:
+  grpc:
+    # Development only: plaintext is allowed solely on loopback.
+    allow_insecure_loopback: true
+    # For production set allow_insecure_loopback to false and configure mTLS.
+    # client_ca_file: /etc/robot-manager/pki/clients-ca.pem
+    # server_certificate_chain_file: /etc/robot-manager/pki/server.pem
+    # server_private_key_file: /etc/robot-manager/pki/server-key.pem
+    # allowed_client_common_names:
+    #   - robot-hmi
